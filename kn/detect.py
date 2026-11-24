@@ -28,6 +28,8 @@ CONFIRM = 2          # consecutive over-threshold checks
 CONFIRM_NO_ROI = 4   # without the job area the head can stay in one place for a while: 2 min
 PIX_DIFF = 28        # grey level difference that counts as changed
 WIDTH = 320
+FOREIGN = 3          # x minimum share: size of a new thing beside the job worth an alarm
+CONFIRM_OUT = 4      # checks (2 min) a new thing beside the job must stay
 COME_BACK = 0.7      # share of the changed place that looked as before in one of the recent frames -> passer-by
 
 
@@ -55,6 +57,8 @@ class Detector:
         self.ref_small = None
         self.over_out = 0
         self.box_out = None
+        self.cand_out = None
+        self._ro = None
         self.strict_until = 0.0
         self.muted_out_until = 0.0
         log.debug("%s: reset (%s)", self.id, why)
@@ -94,6 +98,7 @@ class Detector:
             self.hist.append(last)
             self.over = 0
             self.cand = None
+            self.cand_out = None
             return None
         full = cv2.absdiff(med, prev) > PIX_DIFF
         full = cv2.morphologyEx(full.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)) > 0
@@ -102,6 +107,7 @@ class Detector:
             r = cv2.resize(roi, (full.shape[1], full.shape[0]), interpolation=cv2.INTER_NEAREST) > 0
             if r.sum() > 50:
                 mask, outside = full & r, full & ~r
+                self._ro = ~r
         mask = mask.astype(np.uint8)
         n, lab, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
         big = int(stats[1:, cv2.CC_STAT_AREA].argmax()) + 1 if n > 1 else 0
@@ -139,7 +145,7 @@ class Detector:
                 self.base = 0.9 * self.base + 0.1 * self.score if self.base is not None else self.score
             self.over = 0
             self.box = None
-            return self._outside(outside, mn_out, now, w, h)
+            return self._outside(outside, med, prev, mn_out, now, w, h)
         blob = lab == big
         back = _came_back(self.samples, prev, blob)
         if back >= COME_BACK:
@@ -155,32 +161,55 @@ class Detector:
         log.info("%s: change %.3f over limit %.3f (%d/%d)", self.id, self.score, self.limit, self.over, need)
         return None
 
-    def _outside(self, outside, mn, now, w, h):
-        """A change on the bed beside the job (light, shadow, a hand, or something that fell there).
-        The job area is then checked more strictly for a few minutes; if the job is intact, one notice."""
+    def _outside(self, outside, med, prev, mn, now, w, h):
+        """A change on the bed beside the job: light, shadow, a hand, or something that fell or was put there.
+        The job area is then checked more strictly for a few minutes. A new thing that stays on the bed
+        beside the job (even pushed around by the head) for 2 min is an alarm; light and shadows are not."""
         if outside is None:
+            return None
+        if self.cand_out is not None:
+            ref = self.cand_out  # how the bed looked before
+            d = (cv2.absdiff(med, ref) > PIX_DIFF) & self._ro
+            d = cv2.morphologyEx(d.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+            n, lab, stats, _ = cv2.connectedComponentsWithStats(d, connectivity=8)
+            big = int(stats[1:, cv2.CC_STAT_AREA].argmax()) + 1 if n > 1 else 0
+            score = float(stats[big, cv2.CC_STAT_AREA]) / d.size if big else 0.0
+            back = _came_back(self.samples, ref, lab == big) if big else 1.0
+            if score >= FOREIGN * mn and back < COME_BACK:
+                self.over_out += 1
+                self.strict_until = now + 180
+                self.box_out = _box(lab == big, w, h)
+                log.info("%s: something beside the job stays %.3f (%d/%d)", self.id, score, self.over_out, CONFIRM_OUT)
+                if self.over_out < CONFIRM_OUT or now < self.muted_out_until:
+                    return None
+                self.cand_out, self.over_out = None, 0
+                self.muted_out_until = now + 30 * 60
+                return {"kind": "foreign", "score": score, "box": self.box_out}
+            log.info("%s: change beside the job gone (%.3f, %.0f%% back)", self.id, score, 100 * back)
+            self.cand_out, self.over_out = None, 0
             return None
         n, lab, stats, _ = cv2.connectedComponentsWithStats(outside.astype(np.uint8), connectivity=8)
         if n < 2:
-            self.over_out = 0
             return None
         big = int(stats[1:, cv2.CC_STAT_AREA].argmax()) + 1
         score = float(stats[big, cv2.CC_STAT_AREA]) / outside.size
         if score < 2 * mn:
-            self.over_out = 0
             return None
-        ys, xs = np.nonzero(lab == big)
-        sx, sy = w / outside.shape[1], h / outside.shape[0]
-        box = [int(xs.min() * sx), int(ys.min() * sy), int((xs.max() + 1) * sx), int((ys.max() + 1) * sy)]
-        self.over_out = self.over_out + 1 if self.over_out and self.box_out and _overlap(self.box_out, box) > 0.3 else 1
-        self.box_out = box
         self.strict_until = now + 180
-        log.info("%s: change beside the job %.3f (%d/%d), job area checked strictly", self.id, score, self.over_out, CONFIRM)
-        if self.over_out < CONFIRM or now < self.muted_out_until:
-            return None
-        self.over_out = 0
-        self.muted_out_until = now + 30 * 60
-        return {"kind": "outside", "score": score, "box": box}
+        blob = lab == big
+        back = _came_back(self.samples, prev, blob)
+        log.info("%s: change beside the job %.3f (%.0f%% back), job area checked strictly", self.id, score, 100 * back)
+        old = self.hist[-5] if len(self.hist) >= 5 else self.hist[0]
+        new_thing = float((cv2.absdiff(med, old)[blob] > PIX_DIFF).mean()) >= 0.5  # not just back to how it was
+        if score >= FOREIGN * mn and back < COME_BACK and new_thing:
+            self.cand_out, self.over_out, self.box_out = prev, 1, _box(blob, w, h)
+        return None
+
+
+def _box(blob, w, h):
+    ys, xs = np.nonzero(blob)
+    sx, sy = w / blob.shape[1], h / blob.shape[0]
+    return [int(xs.min() * sx), int(ys.min() * sy), int((xs.max() + 1) * sx), int((ys.max() + 1) * sy)]
 
 
 def _came_back(samples, prev, blob):

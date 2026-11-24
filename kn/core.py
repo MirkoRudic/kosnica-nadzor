@@ -505,8 +505,16 @@ class Core:
             tr["det_hold"], tr["det_z"] = False, zc
             roi = self._roi(pid, f)
             al = self.det[pid].feed(f, s.get("sensitivity", "srednja"), roi)
-            if al and al.get("kind") == "outside":
-                pass  # beside the job: only a stricter check of the job (detect.py), no message
+            if al and al.get("kind") == "foreign":
+                # something that is not part of the job stays on the bed beside it (the head may hit it)
+                img = self.photo(pid, al["box"])
+                tr["alarm_jpg"] = img
+                txt = "na ploči je nešto što nije deo projekta (stoji pored projekta 2 min)"
+                if s.get("auto_pause", {}).get("slika") and not tr["paused_by_app"]:
+                    self.event(pid, "bad", txt + ". Aplikacija pauzira štampu.", img, self.buttons(pid, True))
+                    self.command(pid, "pause", "aplikacija")
+                else:
+                    self.event(pid, "bad", txt, img, self.buttons(pid))
             elif al and roi is None:
                 # where the job is is not known (no project or no camera view): the change may be the head
                 # or anything else in the picture, so no automatic pause - only a picture to look at
