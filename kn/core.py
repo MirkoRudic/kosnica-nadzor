@@ -335,8 +335,10 @@ class Core:
                 if tr["paused_by_app"]:  # asked for from the page/Telegram: the button already shows Nastavi
                     self.event(pid, "info", f"štampa je pauzirana ({tr.get('pause_who')})", tg=False)
                 else:
-                    self.event(pid, "warn", "štampa je pauzirana (sa štampača ili njegova AI detekcija)",
-                               self.photo(pid), self.buttons(pid, True))
+                    # materialStatus 1 = filament sensor empty (K1 24.11.2026: runout pause had 1, printing K2 0)
+                    why = "nestalo je filamenta — ubaci novi pa Nastavi" if new.get("materialStatus") == 1 \
+                        else "štampa je pauzirana (sa štampača ili njegova AI detekcija)"
+                    self.event(pid, "warn", why, self.photo(pid), self.buttons(pid, True))
             elif sn == 1 and so in PAUSED:
                 self.event(pid, "info", "štampa nastavljena", tg=False)
                 tr["paused_by_app"] = False
