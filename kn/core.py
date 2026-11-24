@@ -507,7 +507,7 @@ class Core:
         elif s.get("detect", True) and now - ft < 10:
             tr["det_hold"], tr["det_z"] = False, zc
             roi = self._roi(pid, f)
-            al = self.det[pid].feed(f, s.get("sensitivity", "srednja"), roi)
+            al = self.det[pid].feed(f, s.get("sensitivity", "srednja"), roi, self.track[pid].get("grow") if roi is not None else None)
             if al and al.get("kind") == "foreign":
                 # something that is not part of the job stays on the bed beside it (the head may hit it)
                 img = self.photo(pid, al["box"])
@@ -645,16 +645,15 @@ class Core:
         idle = []
         for pid in pids:
             p = self.printers[pid]
-            active = p.printing() or p.paused()
-            if not active:
+            if not p.printing():  # Mirko 24.11: picture only from printers that print; paused/idle = one line
                 idle.append(f"<b>{p.name}</b>: {p.snapshot()['state_text'] if p.online else 'nije povezan'}")
                 continue
             txt = f"<b>{p.name}</b>: {self._job_line(p)}\n{self._state_line(p)}"
             img = self.photo(pid)
             if img:
-                self._remember_msg(pid, self.bot.send(txt, img, self.buttons(pid, p.paused())))
+                self._remember_msg(pid, self.bot.send(txt, img, self.buttons(pid)))
             else:
-                self.event(pid, "warn", "kamera se ne odaziva", buttons=self.buttons(pid, p.paused()))
+                self.event(pid, "warn", "kamera se ne odaziva", buttons=self.buttons(pid))
         if idle:
             self.bot.send("\n".join(idle))
 
@@ -689,6 +688,8 @@ class Core:
             tr["roi_key"] = key
             h, w = frame.shape[:2]
             tr["roi"] = self.prev[pid].watch_mask(self.view(pid), zc, (w, h))
+            # where the print grows in the next minutes (top few mm of every object): change there is normal
+            tr["grow"] = self.prev[pid].watch_mask(self.view(pid), zc, (w, h), margin=15.0, z_from=zc - 4.0, top_add=4.0)
             if tr["roi"] is not None and tr.get("roi_logged") != tr.get("print_id"):
                 tr["roi_logged"] = tr.get("print_id")
                 log.info("%s: image check limited to the job area (%.0f%% of the picture)", pid, 100 * tr["roi"].mean())

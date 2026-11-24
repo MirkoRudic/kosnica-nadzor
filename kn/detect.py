@@ -24,7 +24,7 @@ SAMPLE_S = 3
 MEDIAN_N = 15        # 15 x 3 s = 45 s
 HIST_EVERY_S = 30
 WARMUP = 4           # history entries before judging (2 min)
-CONFIRM = 2          # consecutive over-threshold checks
+CONFIRM = 4          # checks a change on the job must stay (2 min) before a pause (Mirko 24.11: false pause at 22:42)
 CONFIRM_NO_ROI = 4   # without the job area the head can stay in one place for a while: 2 min
 PIX_DIFF = 28        # grey level difference that counts as changed
 WIDTH = 320
@@ -72,7 +72,7 @@ class Detector:
         self.over = 0
         self.cand = None
 
-    def feed(self, frame, level="srednja", roi=None):
+    def feed(self, frame, level="srednja", roi=None, grow=None):
         """roi: mask (any size) of where the job is; changes outside it (light on the bed, a hand) do not count."""
         """Returns an alarm dict once when a change is confirmed, else None."""
         now = time.time()
@@ -108,6 +108,9 @@ class Detector:
             if r.sum() > 50:
                 mask, outside = full & r, full & ~r
                 self._ro = ~r
+        g_small = None
+        if grow is not None:
+            g_small = cv2.resize(grow, (full.shape[1], full.shape[0]), interpolation=cv2.INTER_NEAREST) > 0
         mask = mask.astype(np.uint8)
         n, lab, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
         big = int(stats[1:, cv2.CC_STAT_AREA].argmax()) + 1 if n > 1 else 0
@@ -119,7 +122,7 @@ class Detector:
         mn_out = mn
         self.limit = max(mn, k * (self.base or 0.0))
         if now < self.strict_until:  # something changed beside the job: look closer at the job itself
-            self.limit *= 0.5
+            self.limit = max(mn, self.limit * 0.5)  # never under the minimum (22:42: 0.005 = one top edge)
         self.ratio = self.score / self.limit if self.limit else 0.0
         self.max_ratio = max(self.max_ratio, self.ratio)
         need = CONFIRM if outside is not None else CONFIRM_NO_ROI
@@ -128,6 +131,10 @@ class Detector:
             ref, blob = self.cand
             still = float((cv2.absdiff(med, ref)[blob] > PIX_DIFF).mean())
             back = _came_back(self.samples, ref, blob)
+            if self._growth(blob, g_small):
+                log.info("%s: change is where the print grows now, not counted", self.id)
+                self.cand, self.over, self.box = None, 0, None
+                return None
             if still >= 0.5 and back < COME_BACK:
                 self.over += 1
                 log.info("%s: change still there (%.0f%%) (%d/%d)", self.id, 100 * still, self.over, need)
@@ -147,6 +154,10 @@ class Detector:
             self.box = None
             return self._outside(outside, med, prev, mn_out, now, w, h)
         blob = lab == big
+        if self._growth(blob, g_small):
+            log.info("%s: change %.3f over limit %.3f is where the print grows now (project), not counted",
+                     self.id, self.score, self.limit)
+            return None
         back = _came_back(self.samples, prev, blob)
         if back >= COME_BACK:
             # in some recent frame that place looked as it did before: something passed over it (the print head)
@@ -160,6 +171,14 @@ class Detector:
         self.cand, self.over = (prev, blob), 1
         log.info("%s: change %.3f over limit %.3f (%d/%d)", self.id, self.score, self.limit, self.over, need)
         return None
+
+    def _growth(self, blob, grow):
+        """The change lies in the band where the project says the print is growing now (top mm of the objects)
+        and is not big: new layers, not a part that came off. Big changes are never explained this way."""
+        if grow is None or not blob.any():
+            return False
+        inside = float(grow[blob].mean())
+        return inside >= 0.7 and float(blob.mean()) < 3 * (self.limit or 0.01)
 
     def _outside(self, outside, med, prev, mn, now, w, h):
         """A change on the bed beside the job: light, shadow, a hand, or something that fell or was put there.

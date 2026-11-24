@@ -220,9 +220,10 @@ class Preview:
             self._owner = own
         return [[o in self.skipped for o in row] for row in self._owner]
 
-    def watch_mask(self, view, zc, size, margin=10.0):
+    def watch_mask(self, view, zc, size, margin=10.0, z_from=0.0, top_add=3.0):
         """Camera-pixel mask (h, w) of the area the job occupies: every printed object (not skipped)
-        from the bed up to the current height, a little wider. None when unknown (no outlines/view)."""
+        from z_from (the bed) up to the current height, a little wider. None when unknown (no outlines/view).
+        With z_from just under zc it is the band where the print grows now (growth_mask)."""
         polys = {n: p for n, p in (getattr(self, "polys", None) or {}).items() if n not in getattr(self, "skipped", set())}
         if not polys or not view:
             return None
@@ -234,13 +235,14 @@ class Preview:
         w, h = size
         sx, sy = w / view["size"][0], h / view["size"][1]
         m = np.zeros((h, w), np.uint8)
-        top = max(zc, 0.0) + 3.0
+        top = max(zc, 0.0) + top_add
         for poly in polys.values():
             c = poly.mean(axis=0)
             d = poly - c
             n = np.linalg.norm(d, axis=1, keepdims=True)
             out = c + d * (1 + margin / np.maximum(n, 1e-3))
-            pts = np.concatenate([np.c_[out, np.zeros(len(out))], np.c_[out, np.full(len(out), top)]]).astype(np.float32)
+            pts = np.concatenate([np.c_[out, np.full(len(out), max(z_from, 0.0))],
+                                  np.c_[out, np.full(len(out), top)]]).astype(np.float32)
             uv = project(pts, view, cam, zc)
             uv = uv[~np.isnan(uv).any(axis=1)]
             if len(uv) < 3:
