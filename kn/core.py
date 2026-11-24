@@ -150,9 +150,10 @@ class Core:
         (log.warning if level != "info" else log.info)("event %s [%s] %s", pid, level, text)
         if tg and self.bot:
             p = self.printers.get(pid)
-            head = f"<b>{name}</b>: {text}" if name else text
-            if p and p.status.get("printFileName"):
-                head += "\n" + self._job_line(p)
+            if p and p.status.get("printFileName"):  # Mirko 24.11: job line first, then what happened
+                head = f"<b>{name}</b>: {self._job_line(p)}\n{text}"
+            else:
+                head = f"<b>{name}</b>: {text}" if name else text
             threading.Thread(target=self._send_job_msg, args=(pid, head, photo or None, buttons), daemon=True).start()
         return e
 
@@ -273,7 +274,7 @@ class Core:
         s = p.snapshot()
         parts = [s["file"] or "—"]
         if s["layers"]:
-            parts.append(f"sloj {s['layer']}/{s['layers']}")
+            parts.append(f"{s['layer']}/{s['layers']}")
         if s["progress"] is not None:
             parts.append(f"{s['progress']}%")
         if s["left_s"]:
@@ -336,15 +337,15 @@ class Core:
                     self.event(pid, "info", f"štampa je pauzirana ({tr.get('pause_who')})", tg=False)
                 else:
                     # materialStatus 1 = filament sensor empty (K1 24.11.2026: runout pause had 1, printing K2 0)
-                    why = "nestalo je filamenta — ubaci novi pa Nastavi" if new.get("materialStatus") == 1 \
-                        else "štampa je pauzirana (sa štampača ili njegova AI detekcija)"
+                    why = "nema filamenta" if new.get("materialStatus") == 1 \
+                        else "štampač pauzirao štampu"
                     self.event(pid, "warn", why, self.photo(pid), self.buttons(pid, True))
             elif sn == 1 and so in PAUSED:
                 self.event(pid, "info", "štampa nastavljena", tg=False)
                 tr["paused_by_app"] = False
                 self.det[pid].reset("resumed")
             elif sn in (3, 4) and active_o:
-                self.event(pid, "bad", "štampa prekinuta" if sn == 4 else "štampa prekinuta greškom",
+                self.event(pid, "bad", "štampa prekinuta",
                            self.photo(pid), self.clean_button(pid))
             elif sn in PAUSED or so in PAUSED:
                 pass
@@ -460,7 +461,7 @@ class Core:
         tr["was_printing"] = printing or (was_printing and not p.online)
         # printer lost during a job
         if not p.online and was_printing and now - p.since_offline > 120:
-            self._once(pid, "offline", "bad", "štampač se ne javlja više od 2 minuta tokom štampe")
+            self._once(pid, "offline", "bad", "štampač se ne javlja više od 2 minuta")
         if p.online:
             tr["warned"].discard("offline")
         if not printing:
@@ -469,7 +470,7 @@ class Core:
         # camera
         f, ft = cam.latest()
         if now - max(ft, self.t0) > 120 and (st["job_s"] or 0) > 120:
-            self._once(pid, "camera", "warn", "kamera ne daje sliku, praćenje slike ne radi")
+            self._once(pid, "camera", "warn", "kamera se ne odaziva")
         elif now - ft < 10:
             tr["warned"].discard("camera")
             if now - tr.get("snap_t", 0) > 300:
@@ -492,7 +493,7 @@ class Core:
         if key != tr["move_key"]:
             tr["move_key"], tr["move_t"] = key, now
         elif now - tr["move_t"] > 600:
-            self._once(pid, "stall", "warn", "štampa stoji već 10 minuta (glava se ne pomera)",
+            self._once(pid, "stall", "warn", "glava se ne pomera, štampa stoji već 10 minuta",
                        self.photo(pid), self.buttons(pid))
         # image check
         layer = int(p.status.get("layer") or 0)
@@ -511,26 +512,20 @@ class Core:
                 # something that is not part of the job stays on the bed beside it (the head may hit it)
                 img = self.photo(pid, al["box"])
                 tr["alarm_jpg"] = img
-                txt = "na ploči je nešto što nije deo projekta (stoji pored projekta 2 min)"
-                if s.get("auto_pause", {}).get("slika") and not tr["paused_by_app"]:
-                    self.event(pid, "bad", txt + ". Aplikacija pauzira štampu.", img, self.buttons(pid, True))
-                    self.command(pid, "pause", "aplikacija")
-                else:
-                    self.event(pid, "bad", txt, img, self.buttons(pid))
+                self.event(pid, "bad", "strani predmet u projektu, proveri!", img, self.buttons(pid))
             elif al and roi is None:
                 # where the job is is not known (no project or no camera view): the change may be the head
                 # or anything else in the picture, so no automatic pause - only a picture to look at
                 img = self.photo(pid, al["box"])
                 tr["alarm_jpg"] = img
-                self.event(pid, "warn", "nešto se promenilo na slici (gde je projekat nije poznato, pa ne pauziram) "
-                           "— pogledaj sliku", img, self.buttons(pid))
+                self.event(pid, "warn", "promena u slici, proveri!", img, self.buttons(pid))
             elif al:
                 img = self.photo(pid, al["box"])
                 tr["alarm_jpg"] = img
                 auto = s.get("auto_pause", {}).get("slika") and not tr["paused_by_app"]
-                txt = "naglo se promenilo na ploči — moguće odlepljivanje ili špageti"
+                txt = "moguće odlepljivanje ili špagete"
                 if auto:
-                    self.event(pid, "bad", txt + ". Aplikacija pauzira štampu.", img, self.buttons(pid, True))
+                    self.event(pid, "bad", txt + ", Košnica pauzira štampu.", img, self.buttons(pid, True))
                     self.command(pid, "pause", "aplikacija")
                 else:
                     self.event(pid, "bad", txt, img, self.buttons(pid))
@@ -562,7 +557,7 @@ class Core:
             time.sleep(0.5)
         if msg_id and self.bot and action in ("pause", "resume"):  # put the button back as it was
             self.bot.edit_buttons(msg_id, self.buttons(pid, action == "resume"))
-        self.event(pid, "bad", f"štampač NIJE potvrdio komandu ({ACTION_TEXT[action]}) — proveri ga",
+        self.event(pid, "bad", "prethodna komanda nije prošla, proveri!",
                    self.photo(pid))
 
     def on_button(self, data, who, msg_id=None):
@@ -630,7 +625,7 @@ class Core:
             old = json.loads(f.read_text(encoding="utf-8")).get("msg")
         except (OSError, ValueError):
             old = None
-        mid = self.bot.send(f"Strana nadzora (otvori na telefonu):\n{l}" if l else
+        mid = self.bot.send(f"Strana nadzora:\n{l}" if l else
                             "Strana za telefon trenutno nije dostupna.")
         if mid:  # only the newest link stays in the group (older links no longer work anyway)
             if old and old != mid:
@@ -651,18 +646,23 @@ class Core:
         for pid in pids:
             p = self.printers[pid]
             active = p.printing() or p.paused()
-            txt = f"<b>{p.name}</b>: {p.snapshot()['state_text'] if p.online else 'nije povezan'}"
             if not active:
-                idle.append(txt)
+                idle.append(f"<b>{p.name}</b>: {p.snapshot()['state_text'] if p.online else 'nije povezan'}")
                 continue
-            if p.printing():
-                txt += "\n" + self._job_line(p)
+            txt = f"<b>{p.name}</b>: {self._job_line(p)}\n{self._state_line(p)}"
             img = self.photo(pid)
-            mid = self.bot.send(txt, img, self.buttons(pid, p.paused())) if img else \
-                self.bot.send(txt + "\n(nema slike sa kamere)")
-            self._remember_msg(pid, mid)
+            if img:
+                self._remember_msg(pid, self.bot.send(txt, img, self.buttons(pid, p.paused())))
+            else:
+                self.event(pid, "warn", "kamera se ne odaziva", buttons=self.buttons(pid, p.paused()))
         if idle:
             self.bot.send("\n".join(idle))
+
+    @staticmethod
+    def _state_line(p):
+        """'stanje redovno' while printing; otherwise the printer's own state (pauzirano...)."""
+        s = p.snapshot()
+        return "stanje redovno" if p.printing() and not s["paused"] else s["state_text"]
 
     def status_text(self):
         rows = []
@@ -671,10 +671,10 @@ class Core:
             if not p.online:
                 rows.append(f"<b>{p.name}</b>: nije povezan")
                 continue
-            r = f"<b>{p.name}</b>: {s['state_text']}"
             if s["state"] == 1 or s["paused"]:
-                r += "\n" + self._job_line(p)
-            r += f"\nDizna {s['nozzle']}° · ploča {s['bed']}°"
+                r = f"<b>{p.name}</b>: {self._job_line(p)}\nDizna {s['nozzle']}° · ploča {s['bed']}°\n{self._state_line(p)}"
+            else:
+                r = f"<b>{p.name}</b>: {s['state_text']}\nDizna {s['nozzle']}° · ploča {s['bed']}°"
             rows.append(r)
         return "\n\n".join(rows)
 
