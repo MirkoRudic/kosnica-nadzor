@@ -96,6 +96,11 @@ def make_server(core, port, on_shutdown, on_secret, on_remote, app=None):
                     if f.exists():
                         return self._send(200, f.read_bytes(), TYPES.get(f.suffix, "application/octet-stream"), True)
                     return self._send(404, {"error": "nema"})
+                m = re.fullmatch(r"/api/raw/(\w+)", path)
+                if m and m.group(1) in core.printers and not self._remote():
+                    raw = {k: v for k, v in core.printers[m.group(1)].status.items()
+                           if not (isinstance(v, str) and len(v) > 200)}  # diagnostics: what the printer reports
+                    return self._send(200, raw)
                 if path == "/api/state":
                     return self._send(200, {**core.state(), "version": version.label()})
                 m = re.fullmatch(r"/api/(frame|preview|alarm)/(\w+)\.jpg", path)
