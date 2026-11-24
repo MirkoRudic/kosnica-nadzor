@@ -1,0 +1,11 @@
+# podaci, tajne i okruzenje ostaju samo na racunaru
+data/
+.venv/
+.env
+__pycache__/
+*.pyc
+# binarni alati (go2rtc.exe, cloudflared.exe) nisu u gitu
+bin/
+dijagnostika/
+kamera/
+instaliraj_git.*

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="sr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Košnica Nadzor</title>
+<link rel="stylesheet" href="/static/{{base.css}}">
+<link rel="stylesheet" href="/static/{{app.css}}">
+</head>
+<body>
+<!--ICONS-->
+<header>
+  <div class="brand"><svg class="i"><use href="#t-hexagons"/></svg>Košnica Nadzor</div>
+  <div class="live" id="live" role="button" tabindex="0"><i class="dot"></i><a id="liveText" target="_blank" rel="noopener">Povezujem…</a></div>
+  <div class="right"><button class="iconbtn" id="btnArchive" aria-label="Arhiva slika"><svg class="i"><use href="#t-library-photo"/></svg></button><button class="iconbtn" id="btnSettings" aria-label="Podešavanja"><svg class="i"><use href="#t-settings"/></svg></button><button class="iconbtn" id="btnQuit" aria-label="Ugasi" hidden><svg class="i"><use href="#t-power"/></svg></button></div>
+</header>
+<div id="vvBars"></div>
+<main id="main">
+  <section class="side">
+    <div class="panel">
+      <h3>Događaji</h3>
+      <div class="events" id="events"></div>
+    </div>
+  </section>
+</main>
+<footer id="foot"><span class="sig"><svg class="i"><use href="#t-heart-bolt"/></svg>Napravljeno u Zajedničkoj zanatskoj radionici Ožiljak<svg class="i"><use href="#t-heart-bolt"/></svg></span></footer>
+
+<template id="tplCard">
+  <article class="card">
+    <div class="chead"><h2><span class="pname"></span></h2><span class="pill st"></span></div>
+    <div class="views">
+      <div class="cam big"><img class="live-img" alt=""><span class="tag">Uživo</span><button class="fs" aria-label="Ceo ekran"><svg class="i"><use href="#t-maximize"/></svg></button><div class="nocam"><svg class="i"><use href="#t-camera-off"/></svg><span>Nema slike</span></div><div class="box"></div></div>
+      <div class="ref"><img class="prev-img" alt=""><span class="tag">Projekat</span><button class="fs" aria-label="Ceo ekran"><svg class="i"><use href="#t-maximize"/></svg></button><div class="nocam small"><span class="ptext">—</span></div></div>
+    </div>
+    <div class="prog">
+      <div class="lbl"><span class="file">—</span><span class="pct"></span></div>
+      <div class="bar"><i class="pbar"></i></div>
+    </div>
+    <div class="facts">
+      <div class="fact"><span>Sloj</span><b class="f-layer">—</b></div>
+      <div class="fact"><span>Dizna</span><b class="f-noz">—</b></div>
+      <div class="fact"><span>Ploča</span><b class="f-bed">—</b></div>
+      <div class="fact"><span>Do kraja</span><b class="f-left">—</b></div>
+    </div>
+    <div class="actions">
+      <button class="b-pause"><svg class="i"><use href="#t-player-pause"/></svg><span>Pauziraj</span></button>
+      <button class="b-stop"><svg class="i"><use href="#t-player-stop"/></svg><span>Zaustavi</span></button>
+    </div>
+  </article>
+</template>
+
+<div class="ov" id="settings" hidden>
+  <div class="sheet" role="dialog" aria-modal="true">
+    <div class="shead"><h2>Podešavanja</h2><button class="iconbtn" data-close aria-label="Zatvori"><svg class="i"><use href="#t-x"/></svg></button></div>
+    <div class="sbody">
+      <h4>Izgled</h4>
+      <div class="row"><span>Tema</span><div class="seg" data-key="theme"><button data-v="dark">Tamna</button><button data-v="light">Svetla</button></div></div>
+      <h4>Prepoznavanje sa slike</h4>
+      <label class="row"><span>Uključeno</span><input type="checkbox" id="sDetect"></label>
+      <div class="row"><span>Osetljivost</span><div class="seg" data-key="sensitivity"><button data-v="niska">Niska</button><button data-v="srednja">Srednja</button><button data-v="visoka">Visoka</button></div></div>
+      <label class="row"><span>Sama pauzira štampu kad slika pokaže naglu promenu</span><input type="checkbox" id="sAuto"></label>
+      <h4>Telegram</h4>
+      <div class="row"><span>Bot</span><b id="tgBot">—</b></div>
+      <div class="row tok"><input id="tgToken" placeholder="Token bota (od BotFather-a)" autocomplete="off" spellcheck="false"><button class="primary" id="tgSave">Sačuvaj</button></div>
+      <div class="row"><span>Grupa</span><b id="tgChat">—</b></div>
+      <label class="row"><span>Javi kad se štampa završi</span><input type="checkbox" id="sDone"></label>
+      <label class="row"><span>Javi kad štampa počne</span><input type="checkbox" id="sStart"></label>
+      <div class="row btns"><button id="tgTest">Probna poruka</button><button id="tgUnbind">Odveži grupu</button></div>
+      <h4>Strana na telefonu</h4>
+      <label class="row"><span>Dostupna preko interneta (Cloudflare, besplatno)</span><input type="checkbox" id="sRemote"></label>
+      <div class="row"><span>Stanje</span><b id="cfState">—</b></div>
+      <div class="row btns"><button id="cfSend">Pošalji link u Telegram</button><button id="cfNew">Novi link</button></div>
+      <h4 class="win">Windows</h4>
+      <label class="row win"><span>Start sa Windows-om</span><input type="checkbox" id="sAutostart"></label>
+      <h4>Dnevnik</h4>
+      <div class="row"><span>Veličina: <b id="logMb">—</b></span><div class="btns"><button id="logShow">Prikaži dnevnik</button><button id="logDel">Obriši starije od…</button></div></div>
+      <h4>O programu</h4>
+      <div class="about">
+        <p>Košnica Nadzor prati štampače u radionici: stanje i kamere uzima direktno sa štampača preko lokalne mreže, poredi sliku
+        sa projektom i javlja na Telegram. Sve radi na ovom računaru; internet služi samo za Telegram, stranu na telefonu i proveru novih verzija.</p>
+        <p>Napravio Mirko Rudić sa Claude Opus 5.5 (Anthropic).</p>
+        <button type="button" class="link" id="aboutMore">Više</button>
+        <div class="more-body" id="aboutBody" hidden>
+          <div class="lic">
+            <span>Python</span><span class="muted">pokreće app</span><span class="muted">PSF</span>
+            <span>OpenCV, NumPy</span><span class="muted">kamera, slika</span><span class="muted">Apache 2.0, BSD</span>
+            <span>go2rtc</span><span class="muted">kamere štampača</span><span class="muted">MIT</span>
+            <span>cloudflared</span><span class="muted">strana na telefonu</span><span class="muted">Apache 2.0</span>
+            <span>pystray, Pillow</span><span class="muted">ikonica pored sata</span><span class="muted">LGPL 3.0, MIT-CMU</span>
+            <span>Telegram Bot API</span><span class="muted">poruke</span><span class="muted">—</span>
+            <span>Tabler Icons</span><span class="muted">ikonice</span><span class="muted">MIT</span>
+          </div>
+        </div>
+      </div>
+      <h4>Verzija</h4>
+      <div id="verBox"></div>
+      <h4 class="win">Deinstaliraj</h4>
+      <div class="row win"><span>Ukloni Košnicu Nadzor sa ovog računara</span><button class="danger-btn" id="btnUninstall">Deinstaliraj</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="logov" hidden>
+  <div class="sheet wide" role="dialog" aria-modal="true">
+    <div class="shead"><h2>Dnevnik</h2><button class="iconbtn" data-close aria-label="Zatvori"><svg class="i"><use href="#t-x"/></svg></button></div>
+    <div class="sbody">
+      <div class="logbar">
+        <input id="logQ" placeholder="Traži">
+        <div class="seg" id="logDays"><button data-v="1">Danas</button><button data-v="2">2 dana</button><button data-v="7">7 dana</button></div>
+        <label class="chk"><input type="checkbox" id="logP">Samo problemi</label>
+      </div>
+      <pre class="log" id="log"></pre>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="calib" hidden>
+  <div class="cal-box" role="dialog" aria-modal="true">
+    <div class="cal-head"><span id="calText"></span><div class="btns"><button id="calReset">Ponovi</button><button data-close>Odustani</button><button class="primary" id="calSave" disabled>Sačuvaj</button></div></div>
+    <div class="cal-stage" id="calStage"><img id="calImg" alt=""><svg id="calSvg"></svg></div>
+  </div>
+</div>
+
+<div class="ov" id="archive" hidden>
+  <div class="sheet wide" role="dialog" aria-modal="true">
+    <div class="shead"><h2>Arhiva slika</h2><button class="iconbtn" data-close aria-label="Zatvori"><svg class="i"><use href="#t-x"/></svg></button></div>
+    <div class="sbody" id="archiveBody"></div>
+  </div>
+</div>
+<div class="ov" id="photo" hidden><div class="photo-box"><img id="photoImg" alt=""><button class="iconbtn" data-close aria-label="Zatvori"><svg class="i"><use href="#t-x"/></svg></button></div></div>
+
+<script>window.KN_VERSION = "[[VERSION]]";</script>
+<script src="/static/{{dialog.js}}"></script>
+<script src="/static/{{version.js}}"></script>
+<script src="/static/{{app.js}}"></script>
+</body>
+</html>

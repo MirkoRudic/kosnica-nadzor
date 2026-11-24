@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="sr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Košnica Nadzor</title>
+<link rel="stylesheet" href="/static/{{base.css}}">
+<link rel="stylesheet" href="/static/{{app.css}}">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="t-hexagons" viewBox="0 0 24 24"><path d="M4 18v-5l4 -2l4 2v5l-4 2l-4 -2" /><path d="M8 11v-5l4 -2l4 2v5" /><path d="M12 13l4 -2l4 2v5l-4 2l-4 -2" /></symbol><symbol id="t-settings" viewBox="0 0 24 24"><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065" /><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /></symbol><symbol id="t-player-pause" viewBox="0 0 24 24"><path d="M6 6a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1l0 -12" /><path d="M14 6a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1l0 -12" /></symbol><symbol id="t-player-play" viewBox="0 0 24 24"><path d="M7 4v16l13 -8l-13 -8" /></symbol><symbol id="t-player-stop" viewBox="0 0 24 24"><path d="M5 7a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2l0 -10" /></symbol><symbol id="t-camera-off" viewBox="0 0 24 24"><path d="M8.297 4.289a.997 .997 0 0 1 .703 -.289h6a1 1 0 0 1 1 1a2 2 0 0 0 2 2h1a2 2 0 0 1 2 2v8m-1.187 2.828c-.249 .11 -.524 .172 -.813 .172h-14a2 2 0 0 1 -2 -2v-9a2 2 0 0 1 2 -2h1c.298 0 .58 -.065 .834 -.181" /><path d="M10.422 10.448a3 3 0 1 0 4.15 4.098" /><path d="M3 3l18 18" /></symbol><symbol id="t-alert-triangle" viewBox="0 0 24 24"><path d="M12 9v4" /><path d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0" /><path d="M12 16h.01" /></symbol><symbol id="t-check" viewBox="0 0 24 24"><path d="M5 12l5 5l10 -10" /></symbol><symbol id="t-info-circle" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 9h.01" /><path d="M11 12h1v4h1" /></symbol><symbol id="t-x" viewBox="0 0 24 24"><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></symbol><symbol id="t-photo" viewBox="0 0 24 24"><path d="M15 8h.01" /><path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12" /><path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5" /><path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3" /></symbol><symbol id="t-power" viewBox="0 0 24 24"><path d="M7 6a7.75 7.75 0 1 0 10 0" /><path d="M12 4l0 8" /></symbol><symbol id="t-maximize" viewBox="0 0 24 24"><path d="M4 8v-2a2 2 0 0 1 2 -2h2" /><path d="M4 16v2a2 2 0 0 0 2 2h2" /><path d="M16 4h2a2 2 0 0 1 2 2v2" /><path d="M16 20h2a2 2 0 0 0 2 -2v-2" /></symbol><symbol id="t-heart-bolt" viewBox="0 0 24 24"><path d="M13 19l-1 1l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 0 1 8.003 5.997" /><path d="M19 16l-2 3h4l-2 3" /></symbol><symbol id="t-library-photo" viewBox="0 0 24 24"><path d="M7 5.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667l0 -8.666" /><path d="M4.012 7.26a2.005 2.005 0 0 0 -1.012 1.737v10c0 1.1 .9 2 2 2h10c.75 0 1.158 -.385 1.5 -1" /><path d="M17 7h.01" /><path d="M7 13l3.644 -3.644a1.21 1.21 0 0 1 1.712 0l3.644 3.644" /><path d="M15 12l1.644 -1.644a1.21 1.21 0 0 1 1.712 0l2.644 2.644" /></symbol></svg>
+<header>
+  <div class="brand"><svg class="i"><use href="#t-hexagons"/></svg>Košnica Nadzor</div>
+  <div class="live" id="live" role="button" tabindex="0"><i class="dot"></i><a id="liveText" target="_blank" rel="noopener">Povezujem…</a></div>
+  <div class="right"><button class="iconbtn" id="btnArchive" aria-label="Arhiva slika"><svg class="i"><use href="#t-library-photo"/></svg></button><button class="iconbtn" id="btnSettings" aria-label="Podešavanja"><svg class="i"><use href="#t-settings"/></svg></button><button class="iconbtn" id="btnQuit" aria-label="Ugasi" hidden><svg class="i"><use href="#t-power"/></svg></button></div>
+</header>
+<div id="vvBars"></div>
+<main id="main">
+  <section class="side">
+    <div class="panel">
+      <h3>Događaji</h3>
+      <div class="events" id="events"></div>
+    </div>
+  </section>
+</main>
+<footer id="foot"><span class="sig"><svg class="i"><use href="#t-heart-bolt"/></svg>Napravljeno u Zajedničkoj zanatskoj radionici Ožiljak<svg class="i"><use href="#t-heart-bolt"/></svg></span></footer>
+
+<template id="tplCard">
+  <article class="card">
+    <div class="chead"><h2><span class="pname"></span></h2><span class="pill st"></span></div>
+    <div class="views">
+      <div class="cam big"><img class="live-img" alt=""><span class="tag">Uživo</span><button class="fs" aria-label="Ceo ekran"><svg class="i"><use href="#t-maximize"/></svg></button><div class="nocam"><svg class="i"><use href="#t-camera-off"/></svg><span>Nema slike</span></div><div class="box"></div></div>
+      <div class="ref"><img class="prev-img" alt=""><span class="tag">Projekat</span><button class="fs" aria-label="Ceo ekran"><svg class="i"><use href="#t-maximize"/></svg></button><div class="nocam small"><span class="ptext">—</span></div></div>
+    </div>
+    <div class="prog">
+      <div class="lbl"><span class="file">—</span><span class="pct"></span></div>
+      <div class="bar"><i class="pbar"></i></div>
+    </div>
+    <div class="facts">
+      <div class="fact"><span>Sloj</span><b class="f-layer">—</b></div>
+      <div class="fact"><span>Dizna</span><b class="f-noz">—</b></div>
+      <div class="fact"><span>Ploča</span><b class="f-bed">—</b></div>
+      <div class="fact"><span>Do kraja</span><b class="f-left">—</b></div>
+    </div>
+    <div class="actions">
+      <button class="b-pause"><svg class="i"><use href="#t-player-pause"/></svg><span>Pauziraj</span></button>
+      <button class="b-stop"><svg class="i"><use href="#t-player-stop"/></svg><span>Zaustavi</span></button>
+    </div>
+  </article>
+</template>
+
+<div class="ov" id="settings" hidden>
+  <div class="sheet" role="dialog" aria-modal="true">
+    <div class="shead"><h2>Podešavanja</h2><button class="iconbtn" data-close aria-label="Zatvori"><svg class="i"><use href="#t-x"/></svg></button></div>
+    <div class="sbody">
+      <h4>Izgled</h4>
+      <div class="row"><span>Tema</span><div class="seg" data-key="theme"><button data-v="dark">Tamna</button><button data-v="light">Svetla</button></div></div>
+      <h4>Prepoznavanje sa slike</h4>
+      <label class="row"><span>Uključeno</span><input type="checkbox" id="sDetect"></label>
+      <div class="row"><span>Osetljivost</span><div class="seg" data-key="sensitivity"><button data-v="niska">Niska</button><button data-v="srednja">Srednja</button><button data-v="visoka">Visoka</button></div></div>
+      <label class="row"><span>Sama pauzira štampu kad slika pokaže naglu promenu</span><input type="checkbox" id="sAuto"></label>
+      <h4>Telegram</h4>
+      <div class="row"><span>Bot</span><b id="tgBot">—</b></div>
+      <div class="row tok"><input id="tgToken" placeholder="Token bota (od BotFather-a)" autocomplete="off" spellcheck="false"><button class="primary" id="tgSave">Sačuvaj</button></div>
+      <div class="row"><span>Grupa</span><b id="tgChat">—</b></div>
+      <label class="row"><span>Javi kad se štampa završi</span><input type="checkbox" id="sDone"></label>
+      <label class="row"><span>Javi kad štampa počne</span><input type="checkbox" id="sStart"></label>
+      <div class="row btns"><button id="tgTest">Probna poruka</button><button id="tgUnbind">Odveži grupu</button></div>
+      <h4>Strana na telefonu</h4>
+      <label class="row"><span>Dostupna preko interneta (Cloudflare, besplatno)</span><input type="checkbox" id="sRemote"></label>
+      <div class="row"><span>Stanje</span><b id="cfState">—</b></div>
+      <div class="row btns"><button id="cfSend">Pošalji link u Telegram</button><button id="cfNew">Novi link</button></div>
+      <h4 class="win">Windows</h4>
+      <label class="row win"><span>Start sa Windows-om</span><input type="checkbox" id="sAutostart"></label>
+      <h4>Dnevnik</h4>
+      <div class="row"><span>Veličina: <b id="logMb">—</b></span><div class="btns"><button id="logShow">Prikaži dnevnik</button><button id="logDel">Obriši starije od…</button></div></div>
+      <h4>O programu</h4>
+      <div class="about">
+        <p>Košnica Nadzor prati štampače u radionici: stanje i kamere uzima direktno sa štampača preko lokalne mreže, poredi sliku
+        sa projektom i javlja na Telegram. Sve radi na ovom računaru; internet služi samo za Telegram, stranu na telefonu i proveru novih verzija.</p>
+        <p>Napravio Mirko Rudić sa Claude Opus 5.5 (Anthropic).</p>
+        <button type="button" class="link" id="aboutMore">Više</button>
+        <div class="more-body" id="aboutBody" hidden>
+          <div class="lic">
+            <span>Python</span><span class="muted">pokreće app</span><span class="muted">PSF</span>
+            <span>OpenCV, NumPy</span><span class="muted">kamera, slika</span><span class="muted">Apache 2.0, BSD</span>
+            <span>go2rtc</span><span class="muted">kamere štampača</span><span class="muted">MIT</span>
+            <span>cloudflared</span><span class="muted">strana na telefonu</span><span class="muted">Apache 2.0</span>
+            <span>pystray, Pillow</span><span class="muted">ikonica pored sata</span><span class="muted">LGPL 3.0, MIT-CMU</span>
+            <span>Telegram Bot API</span><span class="muted">poruke</span><span class="muted">—</span>
+            <span>Tabler Icons</span><span class="muted">ikonice</span><span class="muted">MIT</span>
+          </div>
+        </div>
+      </div>
+      <h4>Verzija</h4>
+      <div id="verBox"></div>
+      <h4 class="win">Deinstaliraj</h4>
+      <div class="row win"><span>Ukloni Košnicu Nadzor sa ovog računara</span><button class="danger-btn" id="btnUninstall">Deinstaliraj</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="logov" hidden>
+  <div class="sheet wide" role="dialog" aria-modal="true">
+    <div class="shead"><h2>Dnevnik</h2><button class="iconbtn" data-close aria-label="Zatvori"><svg class="i"><use href="#t-x"/></svg></button></div>
+    <div class="sbody">
+      <div class="logbar">
+        <input id="logQ" placeholder="Traži">
+        <div class="seg" id="logDays"><button data-v="1">Danas</button><button data-v="2">2 dana</button><button data-v="7">7 dana</button></div>
+        <label class="chk"><input type="checkbox" id="logP">Samo problemi</label>
+      </div>
+      <pre class="log" id="log"></pre>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="calib" hidden>
+  <div class="cal-box" role="dialog" aria-modal="true">
+    <div class="cal-head"><span id="calText"></span><div class="btns"><button id="calReset">Ponovi</button><button data-close>Odustani</button><button class="primary" id="calSave" disabled>Sačuvaj</button></div></div>
+    <div class="cal-stage" id="calStage"><img id="calImg" alt=""><svg id="calSvg"></svg></div>
+  </div>
+</div>
+
+<div class="ov" id="archive" hidden>
+  <div class="sheet wide" role="dialog" aria-modal="true">
+    <div class="shead"><h2>Arhiva slika</h2><button class="iconbtn" data-close aria-label="Zatvori"><svg class="i"><use href="#t-x"/></svg></button></div>
+    <div class="sbody" id="archiveBody"></div>
+  </div>
+</div>
+<div class="ov" id="photo" hidden><div class="photo-box"><img id="photoImg" alt=""><button class="iconbtn" data-close aria-label="Zatvori"><svg class="i"><use href="#t-x"/></svg></button></div></div>
+
+<script>window.KN_VERSION = "[[VERSION]]";</script>
+<script src="/static/{{dialog.js}}"></script>
+<script src="/static/{{version.js}}"></script>
+<script src="/static/{{app.js}}"></script>
+</body>
+</html>
