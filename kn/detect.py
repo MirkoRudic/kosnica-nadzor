@@ -25,8 +25,10 @@ MEDIAN_N = 15        # 15 x 3 s = 45 s
 HIST_EVERY_S = 30
 WARMUP = 4           # history entries before judging (2 min)
 CONFIRM = 2          # consecutive over-threshold checks
+CONFIRM_NO_ROI = 4   # without the job area the head can stay in one place for a while: 2 min
 PIX_DIFF = 28        # grey level difference that counts as changed
 WIDTH = 320
+COME_BACK = 0.7      # share of the changed place that looked as before in one of the recent frames -> passer-by
 
 
 class Detector:
@@ -44,6 +46,7 @@ class Detector:
         self.last_sample = 0.0
         self.base = None
         self.over = 0
+        self.cand = None
         self.score = 0.0
         self.limit = None
         self.ratio = 0.0
@@ -63,6 +66,7 @@ class Detector:
     def mute(self, minutes):
         self.muted_until = time.time() + minutes * 60
         self.over = 0
+        self.cand = None
 
     def feed(self, frame, level="srednja", roi=None):
         """roi: mask (any size) of where the job is; changes outside it (light on the bed, a hand) do not count."""
@@ -89,6 +93,7 @@ class Detector:
             self.hist.clear()
             self.hist.append(last)
             self.over = 0
+            self.cand = None
             return None
         full = cv2.absdiff(med, prev) > PIX_DIFF
         full = cv2.morphologyEx(full.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)) > 0
@@ -111,25 +116,44 @@ class Detector:
             self.limit *= 0.5
         self.ratio = self.score / self.limit if self.limit else 0.0
         self.max_ratio = max(self.max_ratio, self.ratio)
+        need = CONFIRM if outside is not None else CONFIRM_NO_ROI
+        if self.cand is not None:
+            # a change is being followed: is that place still different from how it looked before?
+            ref, blob = self.cand
+            still = float((cv2.absdiff(med, ref)[blob] > PIX_DIFF).mean())
+            back = _came_back(self.samples, ref, blob)
+            if still >= 0.5 and back < COME_BACK:
+                self.over += 1
+                log.info("%s: change still there (%.0f%%) (%d/%d)", self.id, 100 * still, self.over, need)
+                if self.over < need or now < self.muted_until:
+                    return None
+                self.cand, self.over = None, 0
+                self.muted_until = now + 10 * 60  # one alarm, then quiet for 10 min unless reset
+                self.ref_small = ref
+                return {"kind": "job", "score": self.score, "limit": self.limit, "box": self.box}
+            log.info("%s: change gone (%.0f%% still, %.0f%% back), not counted", self.id, 100 * still, 100 * back)
+            self.cand, self.over, self.box = None, 0, None
+            return None
         if self.score < self.limit:
             if now >= self.strict_until:
                 self.base = 0.9 * self.base + 0.1 * self.score if self.base is not None else self.score
             self.over = 0
             self.box = None
             return self._outside(outside, mn_out, now, w, h)
-        ys, xs = np.nonzero(lab == big)
-        sx, sy = w / mask.shape[1], h / mask.shape[0]
-        box = [int(xs.min() * sx), int(ys.min() * sy), int((xs.max() + 1) * sx), int((ys.max() + 1) * sy)]
-        # the same place must stay changed (the moving head makes changes in random places)
-        self.over = self.over + 1 if self.over and self.box and _overlap(self.box, box) > 0.3 else 1
-        self.box = box
-        log.info("%s: change %.3f over limit %.3f (%d/%d)", self.id, self.score, self.limit, self.over, CONFIRM)
-        if self.over < CONFIRM or now < self.muted_until:
+        blob = lab == big
+        back = _came_back(self.samples, prev, blob)
+        if back >= COME_BACK:
+            # in some recent frame that place looked as it did before: something passed over it (the print head)
+            log.info("%s: change %.3f over limit %.3f came and went (%.0f%% back), not counted",
+                     self.id, self.score, self.limit, 100 * back)
             return None
-        self.over = 0
-        self.muted_until = now + 10 * 60  # one alarm, then quiet for 10 min unless reset
-        self.ref_small = prev
-        return {"kind": "job", "score": self.score, "limit": self.limit, "box": self.box}
+        ys, xs = np.nonzero(blob)
+        sx, sy = w / mask.shape[1], h / mask.shape[0]
+        self.box = [int(xs.min() * sx), int(ys.min() * sy), int((xs.max() + 1) * sx), int((ys.max() + 1) * sy)]
+        # follow this place: it must stay different from the old picture (the moving head does not)
+        self.cand, self.over = (prev, blob), 1
+        log.info("%s: change %.3f over limit %.3f (%d/%d)", self.id, self.score, self.limit, self.over, need)
+        return None
 
     def _outside(self, outside, mn, now, w, h):
         """A change on the bed beside the job (light, shadow, a hand, or something that fell there).
@@ -157,6 +181,19 @@ class Detector:
         self.over_out = 0
         self.muted_out_until = now + 30 * 60
         return {"kind": "outside", "score": score, "box": box}
+
+
+def _came_back(samples, prev, blob):
+    """Highest share of the changed place that, in one of the recent raw frames, matches the old picture.
+    A part that came loose never looks as before again; a place the head only covered for a while does."""
+    n = int(blob.sum())
+    if not n:
+        return 0.0
+    best = 0.0
+    for g in samples:
+        same = cv2.absdiff(g, prev)[blob] <= PIX_DIFF
+        best = max(best, float(same.sum()) / n)
+    return best
 
 
 def _overlap(a, b):

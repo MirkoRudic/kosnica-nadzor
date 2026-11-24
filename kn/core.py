@@ -503,9 +503,17 @@ class Core:
             tr["det_z"] = zc
         elif s.get("detect", True) and now - ft < 10:
             tr["det_hold"], tr["det_z"] = False, zc
-            al = self.det[pid].feed(f, s.get("sensitivity", "srednja"), self._roi(pid, f))
+            roi = self._roi(pid, f)
+            al = self.det[pid].feed(f, s.get("sensitivity", "srednja"), roi)
             if al and al.get("kind") == "outside":
                 pass  # beside the job: only a stricter check of the job (detect.py), no message
+            elif al and roi is None:
+                # where the job is is not known (no project or no camera view): the change may be the head
+                # or anything else in the picture, so no automatic pause - only a picture to look at
+                img = self.photo(pid, al["box"])
+                tr["alarm_jpg"] = img
+                self.event(pid, "warn", "nešto se promenilo na slici (gde je projekat nije poznato, pa ne pauziram) "
+                           "— pogledaj sliku", img, self.buttons(pid))
             elif al:
                 img = self.photo(pid, al["box"])
                 tr["alarm_jpg"] = img
