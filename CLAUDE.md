@@ -28,7 +28,7 @@ Računar u radionici: desktop-fk7e7jt, folder `C:\Users\zzroz\Desktop\VAJB\kosni
 - Test bez štampača: `KN_TEST_GCODE=<fajl>`, `KN_TEST_VIDEO=<folder sa k1.mp4,k2.mp4>`, `KN_TG_API=<mock>`, printers u settings sa `"port"`.
 
 ## Izuzeci od PRAVILA.md
-- V2 (ažuriranje iz app): nema git repoa na računaru u radionici; ažurira se ponovnim slanjem fajlova.
+- V2: folder na računaru je git klon MirkoRudic/kosnica-nadzor (od 24.11.2026); ažuriranje iz Podešavanja → Verzija. `static/kosnica.ico` drži ikonica pored sata, pa `git reset --hard` dok app radi ne prolazi (pull menja samo promenjene fajlove).
 - P2: server je na 127.0.0.1, ali je strana dostupna i preko Cloudflare quick tunela (zaštita tajnim linkom iz Telegram grupe, ne Cloudflare Access — nema domena).
 - Quick tunnel je Cloudflare-ova besplatna usluga bez garancije; ako ne radi, Telegram i dalje radi.
 - **Slanje fajlova na računar:** `device_commit_files` ponekad pošalje staru verziju istog fajla kad se ista putanja u `outputs` koristi ponovo (20.11: app.js, index.html, nadzor.pyw ostali stari). Svaki put slati iz nove fascikle (`outputs/kn_<verzija>/`) i posle proveriti md5 vraćanjem fajla.
