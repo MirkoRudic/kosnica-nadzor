@@ -222,7 +222,7 @@ class Core:
         return [[{"text": "Obriši poruke", "callback_data": f"clean:{pid}:{job}"}]]
 
     def _cleanup_job(self, pid, job) -> int:
-        """Deletes the job's messages and pictures; the message with the button stays."""
+        """Deletes the job's Telegram messages (the pictures stay in the archive, data/slike)."""
         import json
         if not (self.bot and job):
             return 0
@@ -565,7 +565,11 @@ class Core:
         if act == "clean":
             pid, _, job = pid.partition(":")
             n = self._cleanup_job(pid, job)
-            self.bot.edit_buttons(msg_id, None)
+            # Mirko 25.11: the message with the button goes too (pictures stay in the app's archive)
+            if msg_id and self.bot.delete([msg_id]):
+                n += 1
+            else:
+                self.bot.edit_buttons(msg_id, None)
             return f"Obrisano poruka: {n}."
         if pid not in self.printers:
             return "Nepoznat štampač."
