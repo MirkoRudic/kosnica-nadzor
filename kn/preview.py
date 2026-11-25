@@ -18,6 +18,7 @@ from . import applog
 
 log = applog.get("preview")
 W, H = 640, 400
+BED_FILL = (22, 22, 24)
 GHOST = (90, 90, 90)
 DONE = (65, 164, 217)      # accent, BGR
 CURRENT = (240, 240, 240)
@@ -368,11 +369,26 @@ def project(pts, view, cam, zc):
     K, rv, tv, _ = cam
     a = pts.astype(np.float64).copy()
     a[:, 2] -= (zc - view.get("z", 0.0))
-    dist = np.array(view["dist"], np.float64) if view.get("dist") else None  # wide lens (k1)
-    uv, _ = cv2.projectPoints(a, rv, tv, K, dist)
     R, _ = cv2.Rodrigues(rv)
-    depth = a @ R[2] + float(np.ravel(tv)[2])
-    uv = uv.reshape(-1, 2)
+    c = a @ R.T + np.ravel(tv)  # camera coordinates
+    depth = c[:, 2]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        xn = c[:, :2] / depth[:, None]
+    k1 = float(view["dist"][0]) if view.get("dist") else 0.0  # wide lens: one radial term
+    if k1:
+        # r(1 + k1 r^2) turns back for r > 1/sqrt(-3 k1): points far outside the picture (the bed front
+        # close to the camera at low Z) then landed inside it (25.11: empty lower half of "Projekat").
+        # Beyond 90% of that radius the curve goes on straight, so outside stays outside.
+        r = np.linalg.norm(xn, axis=1)
+        rm = 0.9 / np.sqrt(-3 * k1) if k1 < 0 else np.inf
+        f = 1 + k1 * r ** 2
+        far = r > rm
+        if far.any():
+            dm = rm * (1 + k1 * rm ** 2)
+            slope = 1 + 3 * k1 * rm ** 2
+            f[far] = (dm + (r[far] - rm) * slope) / r[far]
+        xn = xn * f[:, None]
+    uv = xn @ np.asarray(K, np.float64)[:2, :2].T + np.asarray(K, np.float64)[:2, 2]
     uv[depth < 5] = np.nan  # behind the camera: not drawn
     return uv
 
@@ -404,6 +420,9 @@ def _render_cam_impl(self, layer, view, zc):
     edge = np.array([[x, 0, 0] for x in np.linspace(0, bx, 36)] + [[bx, y, 0] for y in np.linspace(0, by, 36)] +
                     [[x, by, 0] for x in np.linspace(bx, 0, 36)] + [[0, y, 0] for y in np.linspace(by, 0, 36)], np.float32)
     be = project(edge, view, cam, zc)
+    ok_be = be[~np.isnan(be).any(1)]
+    if len(ok_be) > 2:  # the bed as a surface, so the empty part of the bed reads as bed, not as nothing
+        cv2.fillPoly(img, [np.clip(ok_be, -1e4, 1e4).astype(np.int32)], BED_FILL, cv2.LINE_AA)
     for i in range(len(be) - 1):
         if not (np.isnan(be[i]).any() or np.isnan(be[i + 1]).any()):
             cv2.line(img, tuple(np.clip(be[i], -1e4, 1e4).astype(int)), tuple(np.clip(be[i + 1], -1e4, 1e4).astype(int)),
@@ -428,11 +447,35 @@ def _render_cam_impl(self, layer, view, zc):
         cv2.polylines(img, paths(0, True), False, SKIP, 2, cv2.LINE_AA)
     if 0 < k <= n:
         cv2.polylines(img, paths(k - 1), False, CURRENT, 2, cv2.LINE_AA)
+    img = _crop_to_job(img, uvf, w, h)
     if w > 960:
         img = cv2.resize(img, (960, int(h * 960 / w)), interpolation=cv2.INTER_AREA)
     ok, b = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 85])
     self._cache = (key, b.tobytes() if ok else b"")
     return self._cache[1]
+
+
+def _crop_to_job(img, uvf, w, h, margin=0.15):
+    """Zoom to the job (whole project, with a margin), same picture shape: the job fills the view
+    instead of sitting in a corner of an empty bed (Mirko 25.11)."""
+    p = uvf[~np.isnan(uvf).any(1)]
+    p = p[(p[:, 0] >= 0) & (p[:, 0] < w) & (p[:, 1] >= 0) & (p[:, 1] < h)]
+    if len(p) < 10:
+        return img
+    x0, y0 = p.min(0)
+    x1, y1 = p.max(0)
+    cw, ch = (x1 - x0) * (1 + 2 * margin), (y1 - y0) * (1 + 2 * margin)
+    if ch * w / h > cw:  # keep w:h
+        cw = ch * w / h
+    else:
+        ch = cw * h / w
+    cw, ch = min(cw, w), min(ch, h)
+    if cw > 0.85 * w:  # already fills the picture
+        return img
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    ax = int(np.clip(cx - cw / 2, 0, w - cw))
+    ay = int(np.clip(cy - ch / 2, 0, h - ch))
+    return cv2.resize(img[ay:ay + int(ch), ax:ax + int(cw)], (w, h), interpolation=cv2.INTER_LINEAR)
 
 
 def _lines(first, r):

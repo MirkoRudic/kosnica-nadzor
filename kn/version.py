@@ -2,7 +2,7 @@
 from pathlib import Path
 
 APP_NAME = "Košnica Nadzor"
-VERSION = "0.8.6"
+VERSION = "0.8.7"
 _GIT = Path(__file__).resolve().parent
 
 
