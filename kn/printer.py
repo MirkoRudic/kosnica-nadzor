@@ -19,7 +19,8 @@ log = applog.get("printer")
 # state codes: 0, 1, 2 measured 20.11.2026; K1 pause measured 20.11: 1 -> 6 -> 5 -> 8 (8 stays while paused,
 # exact meaning not known); 3, 4 from ha_creality_ws, not verified
 STATES = {0: "miruje", 1: "štampa", 2: "završeno", 3: "greška", 4: "zaustavljeno", 5: "pauzirano",
-          6: "pauzira se", 8: "pauzirano"}
+          6: "pauzira se", 7: "zaustavlja se", 8: "pauzirano", 9: "počinje"}
+# 7 and 9 measured on K1 25.11.2026: stop from the screen goes 1 -> 6 -> 5 -> 7 -> 4; a new job 4/2/0 -> 9 -> 1
 PAUSED = {5, 6, 8}
 
 # NOT verified on Mirko's printers yet: confirmed at runtime by watching `state` after sending

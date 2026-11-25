@@ -323,7 +323,7 @@ class Core:
         so, sn = old.get("state"), new.get("state")
         if so is not None and sn != so:
             log.info("%s: state %s (%s) -> %s (%s)", pid, so, STATES.get(so, "?"), sn, STATES.get(sn, "?"))
-            active_o = so == 1 or so in PAUSED
+            active_o = so == 1 or so in PAUSED or so == 7  # 7 = stopping
             if sn in (2, 3, 4) and active_o:
                 tr["print_id_done"] = tr.get("print_id")
             if sn == 2 and active_o:
