@@ -1,3 +1,5 @@
+Važe pravila iz `PRAVILA.md` u repou MirkoRudic/vajb-osnova (za modele i štampu i `PRAVILA_3D.md`). Ovde su arhitektura, zamke i izuzeci. Šta app radi iz ugla korisnika je u `SPEC.md` — svaka izmena ponašanja prvo tamo. Dokle smo stigli: `STANJE.md`.
+
 # Košnica Nadzor
 
 Prati 3D štampu na K1 Max i K2 Plus u radionici i javlja na Telegram kad nešto krene naopako.
