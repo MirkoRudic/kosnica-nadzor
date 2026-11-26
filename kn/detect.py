@@ -100,6 +100,7 @@ class Detector:
             self.cand = None
             self.cand_out = None
             return None
+        prev = _align(prev, med)  # the bed moves down with Z: marks on it must not look like new things
         full = cv2.absdiff(med, prev) > PIX_DIFF
         full = cv2.morphologyEx(full.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)) > 0
         mask, outside, area = full, None, full.size
@@ -129,6 +130,7 @@ class Detector:
         if self.cand is not None:
             # a change is being followed: is that place still different from how it looked before?
             ref, blob = self.cand
+            ref = _align(ref, med)
             still = float((cv2.absdiff(med, ref)[blob] > PIX_DIFF).mean())
             back = _came_back(self.samples, ref, blob)
             if self._growth(blob, g_small):
@@ -187,7 +189,7 @@ class Detector:
         if outside is None:
             return None
         if self.cand_out is not None:
-            ref = self.cand_out  # how the bed looked before
+            ref = _align(self.cand_out, med)  # how the bed looked before, moved to where the bed is now
             d = (cv2.absdiff(med, ref) > PIX_DIFF) & self._ro
             d = cv2.morphologyEx(d.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
             n, lab, stats, _ = cv2.connectedComponentsWithStats(d, connectivity=8)
@@ -229,6 +231,27 @@ def _box(blob, w, h):
     ys, xs = np.nonzero(blob)
     sx, sy = w / blob.shape[1], h / blob.shape[0]
     return [int(xs.min() * sx), int(ys.min() * sy), int((xs.max() + 1) * sx), int((ys.max() + 1) * sy)]
+
+
+def _align(src, dst):
+    """src moved onto dst the way the bed moved (Z): a homography found on the lower part of the picture
+    (the bed; the head and gantry are mostly at the top). Kept only if it really makes them more alike,
+    so a failed or odd fit changes nothing. Mirko 26.11: the logo on the bed must not look like a new thing."""
+    h, w = dst.shape
+    m = np.zeros_like(dst)
+    m[int(h * 0.45):, :] = 255
+    warp = np.eye(3, dtype=np.float32)
+    try:
+        _, warp = cv2.findTransformECC(dst.astype(np.float32), src.astype(np.float32), warp, cv2.MOTION_HOMOGRAPHY,
+                                       (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 40, 1e-4), m, 5)
+    except cv2.error:
+        return src
+    out = cv2.warpPerspective(src, warp, (w, h), flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP,
+                              borderMode=cv2.BORDER_REPLICATE)
+    sel = m > 0
+    before = float(cv2.absdiff(src, dst)[sel].mean())
+    after = float(cv2.absdiff(out, dst)[sel].mean())
+    return out if after < before else src
 
 
 def _came_back(samples, prev, blob):
