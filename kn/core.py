@@ -314,10 +314,8 @@ class Core:
             tr.update(print_id=pr, warned=set(), temp_bad_t=None, move_t=time.time(), paused_by_app=False,
                       start_jpg=b"", alarm_jpg=b"")
             self.det[pid].reset("new job")
-            if not first and settings.load()["notify"].get("start"):
+            if not first:  # Mirko 26.11: the start of every job goes to Telegram
                 self.event(pid, "info", "počela štampa")
-            elif not first:
-                self.event(pid, "info", "počela štampa", tg=False)
         if tr["print_id"] is None and pr:
             tr["print_id"] = pr
         so, sn = old.get("state"), new.get("state")
