@@ -339,6 +339,10 @@ class Core:
                     # materialStatus 1 = filament sensor empty (K1 24.11.2026: runout pause had 1, printing K2 0)
                     why = "nema filamenta" if new.get("materialStatus") == 1 \
                         else "štampač pauzirao štampu"
+                    en_ = new.get("err") or {}
+                    if en_.get("errcode") and en_.get("errcode") != (old.get("err") or {}).get("errcode"):
+                        why += f" (greška {en_.get('errcode')})"  # Mirko 26.11: one message, not two
+                        tr["err_told"] = en_.get("errcode")
                     self.event(pid, "warn", why, self.photo(pid), self.buttons(pid, True))
             elif sn == 1 and so in PAUSED:
                 self.event(pid, "info", "štampa nastavljena")  # Mirko 26.11: important, goes to Telegram
@@ -358,7 +362,9 @@ class Core:
                 c["host"] = str(new["hostname"])
                 settings.save(s)
         eo, en = (old.get("err") or {}), (new.get("err") or {})
-        if en.get("errcode") and en.get("errcode") != eo.get("errcode"):
+        if not en.get("errcode"):
+            tr["err_told"] = None
+        if en.get("errcode") and en.get("errcode") != eo.get("errcode") and tr.get("err_told") != en.get("errcode"):
             val = str(en.get("value") or "").strip()
             if val.replace("[", "").replace("]", "").strip() == "":  # K2 sends "[ ]" for no text
                 val = ""
