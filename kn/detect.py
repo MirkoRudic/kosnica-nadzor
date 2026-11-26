@@ -140,7 +140,10 @@ class Detector:
             if still >= 0.5 and back < COME_BACK:
                 self.over += 1
                 log.info("%s: change still there (%.0f%%) (%d/%d)", self.id, 100 * still, self.over, need)
-                if self.over < need or now < self.muted_until:
+                if now < self.muted_until:  # already told (or "U redu je"): no growing count, no repeat later
+                    self.cand, self.over, self.box = None, 0, None
+                    return None
+                if self.over < need:
                     return None
                 self.cand, self.over = None, 0
                 self.muted_until = now + 10 * 60  # one alarm, then quiet for 10 min unless reset
@@ -201,7 +204,10 @@ class Detector:
                 self.strict_until = now + 180
                 self.box_out = _box(lab == big, w, h)
                 log.info("%s: something beside the job stays %.3f (%d/%d)", self.id, score, self.over_out, CONFIRM_OUT)
-                if self.over_out < CONFIRM_OUT or now < self.muted_out_until:
+                if now < self.muted_out_until:  # already told: what is there now is the new normal
+                    self.cand_out, self.over_out = None, 0
+                    return None
+                if self.over_out < CONFIRM_OUT:
                     return None
                 self.cand_out, self.over_out = None, 0
                 self.muted_out_until = now + 30 * 60
