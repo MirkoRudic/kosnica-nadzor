@@ -341,7 +341,7 @@ class Core:
                         else "štampač pauzirao štampu"
                     self.event(pid, "warn", why, self.photo(pid), self.buttons(pid, True))
             elif sn == 1 and so in PAUSED:
-                self.event(pid, "info", "štampa nastavljena", tg=False)
+                self.event(pid, "info", "štampa nastavljena")  # Mirko 26.11: important, goes to Telegram
                 tr["paused_by_app"] = False
                 self.det[pid].reset("resumed")
             elif sn in (3, 4) and active_o:
@@ -359,8 +359,11 @@ class Core:
                 settings.save(s)
         eo, en = (old.get("err") or {}), (new.get("err") or {})
         if en.get("errcode") and en.get("errcode") != eo.get("errcode"):
-            self.event(pid, "bad", f"štampač javlja grešku {en.get('errcode')}"
-                       + (f" ({en.get('value')})" if en.get("value") else ""), self.photo(pid), self.buttons(pid))
+            val = str(en.get("value") or "").strip()
+            if val.replace("[", "").replace("]", "").strip() == "":  # K2 sends "[ ]" for no text
+                val = ""
+            self.event(pid, "bad", f"štampač javlja grešku {en.get('errcode')}" + (f" ({val})" if val else ""),
+                       self.photo(pid), self.buttons(pid))
 
     # ---------- periodic checks ----------
     def _loop(self):
