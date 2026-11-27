@@ -1,4 +1,4 @@
-"""One place for number/date formatting (PRAVILA.md T2-T4)."""
+"""One place for number/date formatting (RULES.md T2-T4)."""
 from datetime import datetime
 
 

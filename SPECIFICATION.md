@@ -1,7 +1,7 @@
 # Košnica Nadzor — specifikacija
 
 Šta app radi iz ugla korisnika. Svaka izmena ponašanja prvo se upiše ovde, pa u kod.
-Oblik: **kad se desi X → app uradi Y**. Tehnika i zamke su u `CLAUDE.md`, gde smo stali u `STANJE.md`.
+Oblik: **kad se desi X → app uradi Y**. Tehnika i zamke su u `AGENTS.md`, gde smo stali u `STATUS.md`.
 
 ## Svrha
 Prati 3D štampu na **K1 Max** i **K2 Plus** u radionici i javlja na Telegram (grupa radionice) kad nešto krene naopako, pre svega kad se predmet odlepi od ploče i napravi zbrku. Radi lokalno na računaru u radionici, bez naloga i bez oblaka štampača.

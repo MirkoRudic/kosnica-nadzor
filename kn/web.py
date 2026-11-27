@@ -1,4 +1,4 @@
-"""Local page on 127.0.0.1 only (PRAVILA.md P2)."""
+"""Local page on 127.0.0.1 only (RULES.md P2)."""
 import hashlib
 import hmac
 from http.cookies import SimpleCookie

@@ -1,7 +1,7 @@
 # Košnica Nadzor — stanje (26.11.2026)
 
 Verzija **0.9.2**. Računar u radionici `desktop-fk7e7jt`, `C:\Users\zzroz\Desktop\VAJB\kosnica-nadzor`, port 8800, git klon ovog repoa.
-Nastavak u novom četu: pročitaj `CLAUDE.md`, `SPEC.md`, ovaj fajl; pravila `vajb-osnova/PRAVILA.md`.
+Nastavak u novom četu: pročitaj `AGENTS.md`, `SPECIFICATION.md`, ovaj fajl; pravila `vajb-osnova/RULES.md`.
 
 ## Poslednje urađeno
 - 0.9.0: slika se poravnava sa spuštanjem ploče pre poređenja (nema lažnog stranog predmeta zbog oznaka na ploči). Važi za K1 i K2, bez kalibracije.
