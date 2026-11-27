@@ -114,6 +114,9 @@ def make_server(core, port, on_shutdown, on_secret, on_remote, app=None):
                     else:
                         b = core.track[pid]["alarm_jpg"]
                     return self._send(200 if b else 404, b, "image/jpeg")
+                m = re.fullmatch(r"/api/np/([\w\-]+\.jpg)", path)
+                if m and (core.ign_dir / m.group(1)).exists():
+                    return self._send(200, (core.ign_dir / m.group(1)).read_bytes(), "image/jpeg", True)
                 m = re.fullmatch(r"/api/photo/((?:[\w\-]+/)?[\w\-]+\.jpg)", path)
                 if m and (core.photos / m.group(1)).exists():
                     return self._send(200, (core.photos / m.group(1)).read_bytes(), "image/jpeg", True)
@@ -199,6 +202,8 @@ def make_server(core, port, on_shutdown, on_secret, on_remote, app=None):
                         return self._send(200, {"ok": False, "msg": "Treba 4 tačke."})
                     err = core.save_view(pid, pts)
                     return self._send(200, {"ok": not err, "msg": err})
+                if path == "/api/np/delete":
+                    return self._send(200, {"ok": core.forget_place(b.get("printer"), str(b.get("id")))})
                 if path == "/api/link/send":
                     core.send_link()
                     return self._send(200, {"ok": bool(core.link())})

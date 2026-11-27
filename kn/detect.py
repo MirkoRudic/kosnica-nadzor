@@ -72,9 +72,11 @@ class Detector:
         self.over = 0
         self.cand = None
 
-    def feed(self, frame, level="srednja", roi=None, grow=None):
-        """roi: mask (any size) of where the job is; changes outside it (light on the bed, a hand) do not count."""
-        """Returns an alarm dict once when a change is confirmed, else None."""
+    def feed(self, frame, level="srednja", roi=None, grow=None, bed=None, ignore=None):
+        """roi: mask (any size) of where the job is; changes outside it (light on the bed, a hand) do not count.
+        bed: mask of the bed in the picture; nothing above or beside it (gantry, rails, head, frame) is looked at.
+        ignore: places marked "Nije problem" in Telegram; never applied inside the job area.
+        Returns an alarm dict once when a change is confirmed, else None."""
         now = time.time()
         if frame is None or now - self.last_sample < SAMPLE_S:
             return None
@@ -103,12 +105,23 @@ class Detector:
         prev = _align(prev, med)  # the bed moves down with Z: marks on it must not look like new things
         full = cv2.absdiff(med, prev) > PIX_DIFF
         full = cv2.morphologyEx(full.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)) > 0
-        mask, outside, area = full, None, full.size
-        if roi is not None:
-            r = cv2.resize(roi, (full.shape[1], full.shape[0]), interpolation=cv2.INTER_NEAREST) > 0
-            if r.sum() > 50:
-                mask, outside = full & r, full & ~r
-                self._ro = ~r
+        area = full.size
+        r = _fit(roi, full.shape)
+        if r is not None and r.sum() <= 50:
+            r = None
+        look = _fit(bed, full.shape)  # Mirko 27.11: red frame on the gantry above the bed -> only the bed counts
+        if look is None or look.sum() <= 50:
+            look = np.ones_like(full)
+        ig = _fit(ignore, full.shape)
+        if ig is not None:
+            look = look & ~(ig & ~r) if r is not None else look & ~ig  # the job itself is always checked
+        if r is not None:
+            look = look | r
+        full = full & look
+        mask, outside = full, None
+        if r is not None:
+            mask, outside = full & r, full & ~r
+            self._ro = ~r & look
         g_small = None
         if grow is not None:
             g_small = cv2.resize(grow, (full.shape[1], full.shape[0]), interpolation=cv2.INTER_NEAREST) > 0
@@ -231,6 +244,13 @@ class Detector:
         if score >= FOREIGN * mn and back < COME_BACK and new_thing:
             self.cand_out, self.over_out, self.box_out = prev, 1, _box(blob, w, h)
         return None
+
+
+def _fit(m, shape):
+    """Any-size 0/1 mask -> bool mask of the check size, or None."""
+    if m is None:
+        return None
+    return cv2.resize(m.astype(np.uint8), (shape[1], shape[0]), interpolation=cv2.INTER_NEAREST) > 0
 
 
 def _box(blob, w, h):

@@ -26,8 +26,8 @@ Svaka poruka: prvi red `Štampač: posao · sloj X/Y · N% · još T`, drugi red
 | Nestane filamenta | „nema filamenta“ | Nastavi · Zaustavi |
 | Štampač javi grešku | „štampač javlja grešku {kod} ({opis})“ | Pauziraj · Zaustavi |
 | Odlepljivanje ili špagete | „moguće odlepljivanje ili špagete, Košnica pauzira štampu.“ | Nastavi · Zaustavi |
-| Strani predmet pored projekta | „strani predmet u projektu, proveri!“ (bez pauze, Mirko 24.11) | Pauziraj · Zaustavi |
-| Promena a mesto projekta nije poznato (K1) | „promena u slici, proveri!“ (bez pauze) | Pauziraj · Zaustavi |
+| Strani predmet pored projekta | „strani predmet u projektu, proveri!“ (bez pauze, Mirko 24.11) | Pauziraj · Zaustavi · Nije problem |
+| Promena a mesto projekta nije poznato (K1) | „promena u slici, proveri!“ (bez pauze) | Pauziraj · Zaustavi · Nije problem |
 | Temperatura dizne odstupa | „temperatura dizne 180° umesto 210°“ | Pauziraj · Zaustavi |
 | Glava stoji 10 min | „glava se ne pomera, štampa stoji već 10 minuta“ | Pauziraj · Zaustavi |
 | Štampač nestane 2 min | „štampač se ne javlja više od 2 minuta“ | — |
@@ -36,11 +36,14 @@ Svaka poruka: prvi red `Štampač: posao · sloj X/Y · N% · još T`, drugi red
 
 - Pauza i greška u istom trenutku → jedna poruka.
 - Javljena promena postaje novo normalno → ista stvar se ne javlja ponovo.
+- „Nije problem“ → to mesto na slici tog štampača se više ne proverava (malo šire od okvira); dugme nestaje, odgovor „Zapamćeno“. Mesto se vidi u Podešavanjima sa slikom i može da se obriše. Najviše 20 mesta po štampaču (najstarije ispada).
 - „Obriši poruke“ → briše sve poruke o tom poslu iz grupe, i samu sebe (Telegram dozvoljava do 48 h).
 - Komande: `/slika` (slika samo štampača koji štampaju; ostali jedan red), `/status` (posao, temperature, „stanje redovno“), `/strana` („Strana nadzora:“ + link).
 - Zaustavi traži potvrdu. Posle komande app čeka da štampač promeni stanje; ako ne promeni → poruka da nije prošla.
 
 ## 3. Provera slike
+- Gleda se samo ploča (Mirko 27.11): greda, šine, glava i odsjaji iznad ploče se ne gledaju. K2: ploča iz kalibracije pogleda, na trenutnoj visini. Bez kalibracije (K1): donjih 55 % slike.
+- Zapamćena mesta („Nije problem“) se ne proveravaju, osim tamo gde je projekat — projekat se uvek proverava.
 - Prva 3 sloja se ne proverava; ploča koja se spušta se poravnava pre poređenja.
 - Uzbuna tek kad promena ostane na istom mestu 2 min (4 provere) i pređe prag koji se uči na početku svake štampe.
 - Promena na vrhu predmeta koji upravo raste se ne broji ako nije velika. Mesto koje je skoro izgledalo kao ranije (glava) se ne broji.
@@ -49,7 +52,7 @@ Svaka poruka: prvi red `Štampač: posao · sloj X/Y · N% · još T`, drugi red
 
 ## 4. Strana
 - Po štampaču: uživo slika, Projekat (do trenutnog sloja: urađeno žuto, trenutni belo, ostalo sivo), sloj, dizna, ploča, do kraja; Pauziraj, Zaustavi.
-- Podešavanja: Tema, provera slike (uključeno, osetljivost), Telegram (grupa, javi početak/kraj, probna poruka, odveži grupu), pristup spolja (stanje, Novi link), Dnevnik, Verzija (ažuriranje), Deinstaliraj.
+- Podešavanja: Tema, provera slike (uključeno, osetljivost, Mesta koja nisu problem: slika · štampač · datum · Obriši), Telegram (grupa, javi početak/kraj, probna poruka, odveži grupu), pristup spolja (stanje, Novi link), Dnevnik, Verzija (ažuriranje), Deinstaliraj.
 - Arhiva slika događaja (poslednjih 300).
 
 ## Namerno ne radi

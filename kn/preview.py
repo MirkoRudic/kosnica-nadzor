@@ -252,6 +252,29 @@ class Preview:
             cv2.fillConvexPoly(m, cv2.convexHull(uv.astype(np.int32)), 1)
         return m if m.any() else None
 
+    def bed_mask(self, view, zc, size, bed=None):
+        """Camera-pixel mask (h, w) of the bed surface at the current height. None without a camera view."""
+        if not view:
+            return None
+        try:
+            cam = _cam(view)
+        except Exception as e:
+            log.warning("%s: bed mask: %s", self.id, e)
+            return None
+        bx, by = view.get("bed") or bed or [300, 300]
+        w, h = size
+        sx, sy = w / view["size"][0], h / view["size"][1]
+        xs, ys = np.linspace(0, bx, 13), np.linspace(0, by, 13)  # edges in steps: a wide lens bends them
+        edge = [[x, 0] for x in xs] + [[bx, y] for y in ys] + [[x, by] for x in xs[::-1]] + [[0, y] for y in ys[::-1]]
+        pts = np.c_[np.array(edge, np.float32), np.zeros(len(edge), np.float32)]
+        uv = project(pts, view, cam, zc)
+        uv = uv[~np.isnan(uv).any(axis=1)] * [sx, sy]
+        if len(uv) < 3:
+            return None
+        m = np.zeros((h, w), np.uint8)
+        cv2.fillPoly(m, [uv.astype(np.int32)], 1)
+        return m if m.any() else None
+
     def _render_cam(self, layer, view, zc):
         with self._lock:
             return _render_cam_impl(self, layer, view, zc)

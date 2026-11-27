@@ -32,11 +32,14 @@ DEFAULTS = {
     "keep_photos": 3000,
     "autostart": True,
     "views": {},
+    "ignore": {},  # printer id -> places marked "Nije problem" [{"id", "box", "size", "t", "img"}]
     "projects_dir": r"C:\Users\zzroz\Desktop\3D",
     "remote": True,
     "remote_key": "",
 }
 BED = {"k1": [300, 300], "k2": [350, 350]}  # K1 Max, K2 Plus print area (mm)
+BED_TOP = 0.45  # without a camera view: the bed is the lower part of the picture (as in detect._align)
+IGNORE_MAX = 20  # remembered places per printer
 WAIT_S = {"pause": 60, "resume": 300, "stop": 60}  # K1 resume measured 27 s (reheat can take longer)
 EXPECT = {"pause": PAUSED, "resume": {1}, "stop": {0, 2, 3, 4}}
 ACTION_TEXT = {"pause": "pauza", "resume": "nastavak", "stop": "zaustavljanje"}
@@ -96,6 +99,8 @@ class Core:
         self.data = data
         self.photos = data / "slike"
         self.photos.mkdir(parents=True, exist_ok=True)
+        self.ign_dir = data / "nije_problem"  # pictures of remembered places (not trimmed with event photos)
+        self.ign_dir.mkdir(exist_ok=True)
         self.events = deque(maxlen=300)
         self.ev_id = 0
         self._load_events()
@@ -514,18 +519,22 @@ class Core:
         elif s.get("detect", True) and now - ft < 10:
             tr["det_hold"], tr["det_z"] = False, zc
             roi = self._roi(pid, f)
-            al = self.det[pid].feed(f, s.get("sensitivity", "srednja"), roi, self.track[pid].get("grow") if roi is not None else None)
+            al = self.det[pid].feed(f, s.get("sensitivity", "srednja"), roi,
+                                    self.track[pid].get("grow") if roi is not None else None,
+                                    tr.get("bed"), self._ignore_mask(pid, s, f))
             if al and al.get("kind") == "foreign":
                 # something that is not part of the job stays on the bed beside it (the head may hit it)
                 img = self.photo(pid, al["box"])
                 tr["alarm_jpg"] = img
-                self.event(pid, "bad", "strani predmet u projektu, proveri!", img, self.buttons(pid))
+                self.event(pid, "bad", "strani predmet u projektu, proveri!", img,
+                           self.buttons(pid) + self._np_row(pid, al["box"], f))
             elif al and roi is None:
                 # where the job is is not known (no project or no camera view): the change may be the head
                 # or anything else in the picture, so no automatic pause - only a picture to look at
                 img = self.photo(pid, al["box"])
                 tr["alarm_jpg"] = img
-                self.event(pid, "warn", "promena u slici, proveri!", img, self.buttons(pid))
+                self.event(pid, "warn", "promena u slici, proveri!", img,
+                           self.buttons(pid) + self._np_row(pid, al["box"], f))
             elif al:
                 img = self.photo(pid, al["box"])
                 tr["alarm_jpg"] = img
@@ -567,8 +576,89 @@ class Core:
         self.event(pid, "bad", "prethodna komanda nije prošla, proveri!",
                    self.photo(pid))
 
+    # ---------- places marked "Nije problem" ----------
+    @staticmethod
+    def _np_row(pid, box, frame):
+        """Button that teaches the check: this place (shadow, reflection) is not a problem."""
+        if not box or frame is None:
+            return []
+        h, w = frame.shape[:2]
+        return [[{"text": "Nije problem", "callback_data": f"np:{pid}:{','.join(map(str, box))}:{w}x{h}"}]]
+
+    def _ignore_mask(self, pid, s, frame):
+        items = (s.get("ignore") or {}).get(pid) or []
+        if not items:
+            return None
+        tr = self.track[pid]
+        key = (tuple(i["id"] for i in items), frame.shape[:2])
+        if tr.get("ign_key") != key:
+            h, w = frame.shape[:2]
+            m = np.zeros((h, w), np.uint8)
+            for i in items:
+                sx, sy = w / i["size"][0], h / i["size"][1]
+                x0, y0, x1, y1 = i["box"]
+                m[int(y0 * sy):int(y1 * sy) + 1, int(x0 * sx):int(x1 * sx) + 1] = 1
+            tr["ign_key"], tr["ign"] = key, m
+        return tr["ign"]
+
+    def remember_place(self, pid, box, size, who=""):
+        """Mirko 27.11: a place marked "Nije problem" is not checked again on this printer (except the job area).
+        Kept in Podešavanja with a picture so it can be deleted."""
+        w, h = size
+        x0, y0, x1, y1 = box
+        mx, my = (x1 - x0) * 0.1, (y1 - y0) * 0.1  # a shadow moves a little: a bit wider
+        box = [max(0, int(x0 - mx)), max(0, int(y0 - my)), min(w, int(x1 + mx)), min(h, int(y1 + my))]
+        iid = str(int(time.time() * 1000))
+        img = ""
+        f, ft = self.cams[pid].latest()
+        if f is not None:
+            f = mark(f, [int(v * f.shape[1] / w) if k % 2 == 0 else int(v * f.shape[0] / h) for k, v in enumerate(box)],
+                     (65, 164, 217))
+            ok, b = cv2.imencode(".jpg", cv2.resize(f, (640, int(f.shape[0] * 640 / f.shape[1]))),
+                                 [cv2.IMWRITE_JPEG_QUALITY, 80])
+            if ok:
+                img = f"{pid}_{iid}.jpg"
+                (self.ign_dir / img).write_bytes(b.tobytes())
+        s = settings.load()
+        lst = s.setdefault("ignore", {}).setdefault(pid, [])
+        lst.append({"id": iid, "box": box, "size": [w, h], "t": time.strftime("%d.%m %H:%M"), "img": img})
+        while len(lst) > IGNORE_MAX:
+            old = lst.pop(0)
+            if old.get("img"):
+                (self.ign_dir / old["img"]).unlink(missing_ok=True)
+        settings.save(s)
+        self.det[pid].cand_out, self.det[pid].over_out = None, 0
+        log.info("%s: place %s marked as not a problem (%s)", pid, box, who)
+        self.event(pid, "info", "mesto označeno kao „nije problem“" + (f" ({who})" if who else ""), tg=False)
+
+    def forget_place(self, pid, iid) -> bool:
+        s = settings.load()
+        lst = (s.get("ignore") or {}).get(pid) or []
+        keep = [i for i in lst if i["id"] != iid]
+        if len(keep) == len(lst):
+            return False
+        for i in lst:
+            if i["id"] == iid and i.get("img"):
+                (self.ign_dir / i["img"]).unlink(missing_ok=True)
+        s["ignore"][pid] = keep
+        settings.save(s)
+        log.info("%s: remembered place %s deleted", pid, iid)
+        return True
+
     def on_button(self, data, who, msg_id=None):
         act, _, pid = data.partition(":")
+        if act == "np":
+            pid, _, rest = pid.partition(":")
+            try:
+                b, _, sz = rest.partition(":")
+                box = [int(v) for v in b.split(",")]
+                size = [int(v) for v in sz.split("x")]
+                assert len(box) == 4 and len(size) == 2 and pid in self.printers
+            except (ValueError, AssertionError):
+                return "Ne razumem dugme."
+            self.remember_place(pid, box, size, who)
+            self.bot.edit_buttons(msg_id, self.buttons(pid, self.printers[pid].paused()))
+            return "Zapamćeno: tu više ne javljam (Podešavanja → Mesta koja nisu problem)."
         if act == "clean":
             pid, _, job = pid.partition(":")
             n = self._cleanup_job(pid, job)
@@ -699,12 +789,22 @@ class Core:
             tr["roi_key"] = key
             h, w = frame.shape[:2]
             tr["roi"] = self.prev[pid].watch_mask(self.view(pid), zc, (w, h))
+            tr["bed"] = self._bed(pid, zc, w, h)
             # where the print grows in the next minutes (top few mm of every object): change there is normal
             tr["grow"] = self.prev[pid].watch_mask(self.view(pid), zc, (w, h), margin=15.0, z_from=zc - 4.0, top_add=4.0)
             if tr["roi"] is not None and tr.get("roi_logged") != tr.get("print_id"):
                 tr["roi_logged"] = tr.get("print_id")
                 log.info("%s: image check limited to the job area (%.0f%% of the picture)", pid, 100 * tr["roi"].mean())
         return tr.get("roi")
+
+    def _bed(self, pid, zc, w, h):
+        """Where the bed is in the picture: from the camera view (K2), else the lower part of the picture (K1)."""
+        bed = next((p.get("bed") for p in settings.load()["printers"] if p["id"] == pid), None) or BED.get(pid)
+        m = self.prev[pid].bed_mask(self.view(pid), zc, (w, h), bed)
+        if m is None:
+            m = np.zeros((h, w), np.uint8)
+            m[int(h * BED_TOP):, :] = 1
+        return m
 
     def zc(self, pid) -> float:
         m = re.search(r"Z:(-?[\d.]+)", str(self.printers[pid].status.get("curPosition", "")))

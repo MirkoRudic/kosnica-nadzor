@@ -275,8 +275,42 @@
     setText($("#tgBot"), t.name ? "@" + t.name : t.token ? "nije povezan" : "nema tokena");
     setText($("#tgChat"), t.chat || "nije povezana");
     const c = lastState ? lastState.tunnel : {};
+    renderPlaces(s);
     $("#sRemote").checked = !!s.remote;
     setText($("#cfState"), !s.remote ? "isključena" : c.ok ? "dostupna" : "povezuje se…");
+  }
+  // places marked "Nije problem" in Telegram: picture, printer and date, Obriši
+  function renderPlaces(s) {
+    const box = $("#npList");
+    box.textContent = "";
+    const names = Object.fromEntries((s.printers || []).map((p) => [p.id, p.name]));
+    const all = [];
+    for (const [pid, lst] of Object.entries(s.ignore || {})) for (const it of lst) all.push({ pid, ...it });
+    setText($("#npCount"), all.length ? String(all.length) : "nema");
+    for (const it of all.reverse()) {
+      const row = document.createElement("div");
+      row.className = "row np";
+      const left = document.createElement("div");
+      left.className = "npl";
+      if (it.img) {
+        const im = document.createElement("img");
+        im.src = "/api/np/" + it.img;
+        im.loading = "lazy";
+        im.onclick = () => showPhoto(im.src);
+        left.append(im);
+      }
+      const tx = document.createElement("span");
+      tx.textContent = `${names[it.pid] || it.pid} · ${it.t}`;
+      left.append(tx);
+      const del = document.createElement("button");
+      del.textContent = "Obriši";
+      del.onclick = async () => {
+        await api("/api/np/delete", { printer: it.pid, id: it.id });
+        renderPlaces(await api("/api/settings"));
+      };
+      row.append(left, del);
+      box.append(row);
+    }
   }
   const formatMb = (v) => v == null ? "—" : `${String(v).replace(".", ",")} MB`;
   const save = (b) => api("/api/settings", b);
