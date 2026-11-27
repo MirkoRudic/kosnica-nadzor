@@ -22,7 +22,7 @@ Nastavak u novom četu: pročitaj `AGENTS.md`, `SPECIFICATION.md`, ovaj fajl; pr
 - Greške štampača sa opisom i linkom na Creality wiki (predlog dat, čeka „da“).
 - Edge mini meni: `ugasi_mini_meni.vbs` u VAJB folderu traži administratora — Mirko pokreće sam.
 - Auto-login posle nestanka struje: lozinka Microsoft naloga ne prolazi.
-- Nadzor za druge radionice: plan u projektnom dokumentu `kosnica-nadzor-za-druge.md` (korak 1: stabilno kod nas).
+- Nadzor za druge radionice: plan u `docs/OTHER_WORKSHOPS_PLAN.md` (korak 1: stabilno kod nas).
 
 ## Nije provereno
 - Ispravka 0.9.0 na pravim štampama (provereno na veštačkom snimku).
